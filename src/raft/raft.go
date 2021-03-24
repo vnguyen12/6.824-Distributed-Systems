@@ -18,13 +18,13 @@ package raft
 //
 
 import (
-	//	"bytes"
+	"bytes"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	//	"6.824/labgob"
+	"6.824/labgob"
 	"6.824/labrpc"
 )
 
@@ -131,13 +131,18 @@ func (rf *Raft) GetState() (int, bool) {
 	return term, isleader
 }
 
-//
-// TODO
-// -----------------------------------------
+/************************************
+ * Persistence
+ ************************************/
 // save Raft's persistent state to stable storage,
 // where it can later be retrieved after a crash and restart.
 // see paper's Figure 2 for a description of what should be persistent.
-//
+type RaftPersistence struct {
+	CurrentTerm int
+	Log         []LogEntry
+	VotedFor    int
+}
+
 func (rf *Raft) persist() {
 	// Your code here (2C).
 	// Example:
@@ -147,13 +152,19 @@ func (rf *Raft) persist() {
 	// e.Encode(rf.yyy)
 	// data := w.Bytes()
 	// rf.persister.SaveRaftState(data)
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(
+		RaftPersistence{
+			CurrentTerm: rf.currentTerm,
+			Log:         rf.log,
+			VotedFor:    rf.votedFor,
+		})
+
+	rf.persister.SaveRaftState(w.Bytes())
 }
 
-//
-// TODO
-// -----------------------------------------
-// restore previously persisted state.
-//
+// readPesist restorea previously persisted state.
 func (rf *Raft) readPersist(data []byte) {
 	if data == nil || len(data) < 1 { // bootstrap without any state?
 		return
@@ -171,6 +182,15 @@ func (rf *Raft) readPersist(data []byte) {
 	//   rf.xxx = xxx
 	//   rf.yyy = yyy
 	// }
+
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	obj := RaftPersistence{}
+	if d.Decode(&obj) == nil {
+		rf.votedFor = obj.VotedFor
+		rf.currentTerm = obj.CurrentTerm
+		rf.log = obj.Log
+	}
 }
 
 //
@@ -221,7 +241,7 @@ type RequestVoteReply struct {
 	VoteGranted bool
 }
 
-// example RequestVote RPC handler.
+// RequestVote - RequestVote RPC handler.
 //
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (2A, 2B).
@@ -264,6 +284,8 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		reply.VoteGranted = true
 		rf.votedFor = args.CandidateID
 	}
+
+	rf.persist()
 }
 
 //
@@ -323,6 +345,7 @@ func (rf *Raft) runElection() {
 			}(i)
 		}
 	}
+	rf.persist()
 }
 
 // Processes the votes returned by the RequestVote RPC call for each candidate
@@ -352,6 +375,7 @@ func (rf *Raft) processVoteReply(args *RequestVoteArgs, reply *RequestVoteReply)
 			rf.wonElectionChan <- true
 		}
 	}
+	rf.persist()
 }
 
 // Start
@@ -462,7 +486,7 @@ func Make(peers []*labrpc.ClientEnd, me int, persister *Persister, applyCh chan 
 	}
 
 	// initialize from state persisted before a crash
-	// rf.readPersist(persister.ReadRaftState())
+	rf.readPersist(persister.ReadRaftState())
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
@@ -638,6 +662,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		rf.commitIndex = getMin(args.LeaderCommit, rf.getLastIndex())
 		rf.commitChan <- true
 	}
+	rf.persist()
 }
 
 // Send an AppendEntry RPC to a peer
@@ -700,6 +725,7 @@ func (rf *Raft) broadcastAppend() {
 			}
 		}
 	}
+	rf.persist()
 }
 
 // Called by the leader to process the replies from the AppendReply RPC calls
