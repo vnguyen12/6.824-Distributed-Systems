@@ -1,5 +1,5 @@
 # 6.824-Distributed-Systems
-MIT 6.824 Spring 2021
+Course website: https://pdos.csail.mit.edu/6.824/schedule.html
 
 ## Lab 1: MapReduce
 In this lab you'll build a MapReduce system. You'll implement a worker process that calls application Map and Reduce functions and handles reading and writing files, and a coordinator process that hands out tasks to workers and copes with failed workers. You'll be building something similar to the MapReduce paper. (Note: the lab uses "coordinator" instead of the paper's "master".)
