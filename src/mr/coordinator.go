@@ -56,10 +56,10 @@ type Coordinator struct {
 //
 // the RPC argument and reply types are defined in rpc.go.
 //
-// func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
-// 	reply.Y = args.X + 1
-// 	return nil
-// }
+func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
+	reply.Y = args.X + 1
+	return nil
+}
 
 //
 // GetReduceCount RPC handler.
@@ -192,7 +192,7 @@ func (c *Coordinator) Done() bool {
 
 	return c.nMap == 0 && c.nReduce == 0
 
-	//return ret
+	// return true
 }
 
 //
